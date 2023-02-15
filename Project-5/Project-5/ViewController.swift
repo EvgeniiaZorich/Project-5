@@ -9,7 +9,8 @@ import UIKit
 
 class ViewController: UITableViewController {
     var allWords = [String]()
-    var usedWords = [String]()
+//    var usedWords = [String]()
+    var lastGame = LastGame(lastMainWord: "", lastGuessedWords: [String]())
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -22,26 +23,51 @@ class ViewController: UITableViewController {
                 allWords = startWords.components(separatedBy: "\n")
             }
         }
-        if allWords.isEmpty {
-            allWords = ["whoa"]
+        
+        let userDefaults = UserDefaults.standard
+        if let loadedState = userDefaults.object(forKey: "lastGame") as? Data {
+            let decoder = JSONDecoder()
+            if let decodedState = try? decoder.decode(LastGame.self, from: loadedState) {
+                lastGame = decodedState
+            }
         }
         
-        startGame()
+        if lastGame.lastMainWord.isEmpty {
+            startGame()
+        } else {
+            title = lastGame.lastMainWord
+            tableView.reloadData()
+        }
     }
     
     @objc func startGame() {
         title = allWords.randomElement()
-        usedWords.removeAll(keepingCapacity: true)
+        lastGame.lastMainWord = title ?? "whoa"
+        lastGame.lastGuessedWords.removeAll(keepingCapacity: true)
+//        usedWords.removeAll(keepingCapacity: true)
         tableView.reloadData()
     }
     
+    func save() {
+        let jsonEncoder = JSONEncoder()
+        if let savedData = try? jsonEncoder.encode(lastGame) {
+            let defaults = UserDefaults.standard
+            defaults.set(savedData, forKey: "lastGame")
+        } else {
+            print("Failed to save people.")
+        }
+    }
+    
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return usedWords.count
+//        return usedWords.count
+        lastGame.lastGuessedWords.count
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "Word", for: indexPath)
-        cell.textLabel?.text = usedWords[indexPath.row]
+//        cell.textLabel?.text = usedWords[indexPath.row]
+        cell.textLabel?.text = lastGame.lastGuessedWords[indexPath.row]
+
         return cell
     }
     
@@ -71,8 +97,10 @@ class ViewController: UITableViewController {
             showErrorMessage(title: "Word not possible", message: "You can't spell that word from \(title!.lowercased()).")
         }
         else {
-            usedWords.insert(answer, at: 0)
+//            usedWords.insert(answer, at: 0)
+            lastGame.lastGuessedWords.insert(answer, at: 0)
             let indexPath = IndexPath(row: 0, section: 0)
+            save()
             tableView.insertRows(at: [indexPath], with: .automatic)
         }
         
@@ -98,7 +126,7 @@ class ViewController: UITableViewController {
     }
     
     func isOriginal(word: String) -> Bool {
-        return !usedWords.contains(word)
+        return !lastGame.lastGuessedWords.contains(word)
     }
     
     func isReal(word: String) -> Bool {
